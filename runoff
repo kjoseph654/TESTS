@@ -1,0 +1,110 @@
+require(plyr)
+require(dplyr)
+require(tidyr)
+require(ggplot2)
+require(ggpubr)
+require(zoo)
+require(reshape2)
+require(readxl)
+
+#"access1-0","canesm2","cesm1-bgc","cnrm-cm5","csiro-mk3-6-0","gfdl-cm3","gfdl-esm2g","hadgem2-cc",
+#"hadgem2-es","inmcm4","miroc5","mpi-esm-lr","mri-cgcm3","noresm1-m"
+
+gcms<-c("access1-0","canesm2","cesm1-bgc","cnrm-cm5","csiro-mk3-6-0","gfdl-cm3","gfdl-esm2g","hadgem2-cc",
+        "hadgem2-es","inmcm4","miroc5","mpi-esm-lr","mri-cgcm3","noresm1-m")
+
+runoff<-data.frame(NA)
+runoff1<-data.frame(NA)
+name2<-c("date")
+
+for(gcm in gcms)
+{
+  data.in<-paste("E:/Kenny All/R-3.5.1/Climate Change/LOCA Runoff W 2025/",gcm,"_rcp85_totalrunoff_stn_W_2025-2054_HD.csv",sep="")
+  frame<-read.csv(data.in, quote="\"", comment.char="",fill=TRUE)
+  frame<-frame[,-1]
+  runoff<-data.frame(runoff,frame)
+  name1<-c(gcm)
+  name2<-c(name2,name1)
+}
+
+frame<-read.csv(data.in)
+runoff[,1]<-frame[,1]
+names(runoff)<-name2
+name2<-c("date")
+
+for(gcm in gcms)
+{
+  data.in<-paste("E:/Kenny All/R-3.5.1/Climate Change/LOCA Runoff E 2025/",gcm,"_rcp85_totalrunoff_stn_E_2025-2054_HD.csv",sep="")
+  frame1<-read.csv(data.in, quote="\"", comment.char="",fill=TRUE)
+  frame1<-frame[,-1]
+  runoff1<-data.frame(runoff1,frame1)
+  name1<-c(gcm)
+  name2<-c(name2,name1)
+}
+
+frame1<-read.csv(data.in)
+runoff1[,1]<-frame1[,1]
+names(runoff1)<-name2
+
+for (i in 2:15)
+{
+  for (j in 1:1128)
+  {
+    runoff1[j,i]<-runoff[j,i]+runoff1[j,i]
+  }
+}
+
+runoff<-data.frame(NA)
+
+for (i in 1:94)
+{
+  for (j in 2:15)
+  {
+    runoff[i,j]<-(runoff1[12*i-11,j]+runoff1[12*i-10,j]+runoff1[12*i-9,j]+runoff1[12*i-8,j]+runoff1[12*i-7,j]+
+      runoff1[12*i-6,j]+runoff1[12*i-5,j]+runoff1[12*i-4,j]+runoff1[12*i-3,j]+runoff1[12*i-2,j]+
+      runoff1[12*i-1,j]+runoff1[12*i,j])/1000
+  }
+}
+
+runoff[,1]<-1922:2015
+
+quant.runoff<-data.frame(matrix(nrow=41,ncol=14))
+for (i in 2:15)
+{
+  quant.runoff[,i-1]<-quantile(runoff[,i], probs=seq(0,1, by=0.025))
+}
+
+median.runoff<-data.frame(matrix(nrow=41, ncol=2))
+median.runoff[,2]<-apply(quant.runoff,1,median)
+median.runoff[,1]<-seq(0,1, by=0.025)
+
+min.runoff<-data.frame(matrix(nrow=41, ncol=2))
+min.runoff[,2]<-apply(quant.runoff,1,min)
+min.runoff[,1]<-seq(0,1, by=0.025)
+
+max.runoff<-data.frame(matrix(nrow=41, ncol=2))
+max.runoff[,2]<-apply(quant.runoff,1,max)
+max.runoff[,1]<-seq(0,1, by=0.025)
+
+names(median.runoff)<-c("Quantile","Median")
+names(min.runoff)<-c("Quantile","Minimum")
+names(max.runoff)<-c("Quantile","Maximum")
+
+data.runoff<-median.runoff
+data.runoff[,3]<-min.runoff[,2]
+data.runoff[,4]<-max.runoff[,2]
+names(data.runoff)<-c("Quantile","Median","Minimum","Maximum")
+
+data1.runoff<-median.runoff
+data1.runoff[,3]<-c(rep("Median",41))
+names(data1.runoff)<-c("Quantile","variable","value")
+data2.runoff<-data.runoff[,-2]
+names(data2.runoff)<-c("Quantile","variable","value")
+
+ggplot(aes(y = variable, x = Quantile, colour=value),data=data1.runoff)+theme_bw()+geom_line()+
+  scale_colour_manual(values=c("red"))+
+  geom_ribbon(data=data2.runoff,aes(x=Quantile,ymin=variable,ymax=value, fill="Range"),alpha=0.2,colour="blue")+
+  scale_fill_manual(values=c("Range"="blue"))+
+  scale_x_continuous(breaks = seq(0,1.00,by=0.10),limits=c(0,1.00),expand=c(0,0))+
+  scale_y_continuous(breaks = seq(0,800, by =100), limits=c(0, 800), expand=c(0,0))+
+  coord_flip()
