@@ -1,4 +1,0 @@
-Criteria for selecting hits:
-R^2 must be > 0.85 ?
-
-Make table as maleable as possible
